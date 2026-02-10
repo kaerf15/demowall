@@ -1,8 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  reactCompiler: true,
-  basePath: "/demowall",
+  // reactCompiler: true,
+  // basePath: "/demowall",
   images: {
     remotePatterns: [
       {
