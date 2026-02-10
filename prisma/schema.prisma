@@ -1,0 +1,45 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Product {
+  id          String   @id @default(uuid())
+  name        String
+  description String
+  websiteUrl  String
+  imageUrl    String?
+  githubUrl   String?
+  twitterUrl  String?
+  makerName   String
+  makerEmail  String
+  makerAvatar String?
+  categoryId  String
+  category    Category @relation(fields: [categoryId], references: [id])
+  tags        Tag[]
+  upvotes     Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  published   Boolean  @default(false)
+}
+
+model Category {
+  id       String    @id @default(uuid())
+  name     String    @unique
+  slug     String    @unique
+  icon     String?
+  products Product[]
+}
+
+model Tag {
+  id       String   @id @default(uuid())
+  name     String   @unique
+  products Product[]
+}
