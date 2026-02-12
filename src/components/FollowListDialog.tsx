@@ -28,7 +28,7 @@ export function FollowListDialog({
   onOpenChange,
   initialTab = "following",
 }: FollowListDialogProps) {
-  const { token } = useAuth();
+  const { token, user: currentUser } = useAuth();
   const [activeTab, setActiveTab] = useState(initialTab);
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(false);
@@ -101,7 +101,7 @@ export function FollowListDialog({
               <div className="space-y-4">
                 {users.map((user) => (
                   <Link 
-                    href={`/users/${user.id}`} 
+                    href={currentUser && String(currentUser.id) === String(user.id) ? "/profile" : `/users/${user.id}`} 
                     key={user.id} 
                     className="flex items-center gap-3 hover:bg-muted/50 p-2 rounded-lg transition-colors"
                     onClick={() => onOpenChange(false)}

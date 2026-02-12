@@ -111,7 +111,7 @@ export function ProductCard({ product, onClick, action }: ProductCardProps) {
         </p>
         <div className="flex items-center justify-between pt-1 border-t border-border/50">
           <Link
-            href={product.userId ? `/users/${product.userId}` : "#"}
+            href={product.userId ? (currentUserId && String(currentUserId) === String(product.userId) ? "/profile" : `/users/${product.userId}`) : "#"}
             className="flex items-center gap-1.5 hover:opacity-80 transition-opacity"
             onClick={(e) => e.stopPropagation()}
           >

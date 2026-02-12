@@ -23,10 +23,12 @@ export function AuthorSection({
   onShare,
   className = "",
 }: AuthorSectionProps) {
+  const profileLink = currentUserId && String(currentUserId) === String(product.userId) ? "/profile" : `/users/${product.userId}`;
+
   return (
     <div className={`flex flex-col p-4 border-b border-border/50 gap-4 ${className}`}>
       <div className="flex items-center justify-between">
-        <Link href={`/users/${product.userId}`} className="flex items-center gap-3 hover:opacity-80 transition-opacity">
+        <Link href={profileLink} className="flex items-center gap-3 hover:opacity-80 transition-opacity">
           <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white text-sm font-bold shadow-sm overflow-hidden">
             {product.user?.avatar ? (
               <img src={product.user.avatar} alt={product.user.username || "User"} className="w-full h-full object-cover" />

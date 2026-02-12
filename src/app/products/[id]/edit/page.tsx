@@ -102,7 +102,6 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
       if (response.ok) {
         toast.success("修改成功");
         router.push("/profile");
-        router.refresh();
       } else {
         toast.error(resData.error || "更新失败");
       }

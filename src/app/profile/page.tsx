@@ -83,10 +83,18 @@ export default function ProfilePage() {
 
   // 1. Check auth
   useEffect(() => {
+    // 如果明确知道未认证且不在加载中，才重定向
+    if (isAuthenticated === false && !loading) {
+      router.push("/");
+      return;
+    }
+
     const checkAuth = async () => {
-      if (!isAuthenticated || !token) {
-        setLoading(false);
-        // router.push("/"); // AuthContext will handle redirect if needed, or we can do it here
+      if (!token) {
+        // 如果没有 token，等待 AuthContext 初始化完成
+        if (!isAuthenticated) {
+             setLoading(false);
+        }
         return;
       }
 
@@ -110,11 +118,12 @@ export default function ProfilePage() {
             title: data.user.title || "",
           });
         } else {
+          // Token 无效
           router.push("/");
         }
       } catch (e) {
         console.error(e);
-        router.push("/");
+        // 网络错误等暂不强制跳转，除非必要
       } finally {
         setLoading(false);
       }

@@ -6,6 +6,7 @@ interface UseProductsOptions {
   search?: string;
   type?: string | null;
   userId?: string | null;
+  enabled?: boolean;
 }
 
 interface ProductsResponse {
@@ -94,6 +95,7 @@ export function useProducts(options: UseProductsOptions = {}) {
     initialPageParam: null as string | null,
     getNextPageParam: (lastPage) => lastPage.nextCursor,
     staleTime: 60 * 1000,
+    enabled: options.enabled,
   });
 }
 

@@ -38,7 +38,7 @@ interface Stats {
 export default function UserProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
   const userId = resolvedParams.id;
-  const { user: currentUser, token, isAuthenticated } = useAuth();
+  const { user: currentUser, token, isAuthenticated, isLoading: authLoading } = useAuth();
   
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
@@ -54,29 +54,39 @@ export default function UserProfilePage({ params }: { params: Promise<{ id: stri
   const [loading, setLoading] = useState(true);
   
   const [activeTab, setActiveTab] = useState("created");
+  
+  // 仅在非本人且 Auth 加载完成后才开始获取数据，避免重定向时的竞态条件
+  // 注意：即使未登录 (currentUser 为 null)，只要 Auth 加载完成，也应该允许 fetch (查看他人主页)
+  const isOwnProfile = currentUser?.id === userId;
+  const shouldFetch = !authLoading && !isOwnProfile;
+
   const { data: productsData, isLoading: productsLoading } = useProducts({
     type: activeTab,
     userId: userId,
+    enabled: shouldFetch,
   });
 
   const products = productsData ? productsData.pages.flatMap(page => page.items || []) : [];
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
 
-  // Redirect to profile if visiting own page
-  useEffect(() => {
-    if (currentUser?.id === userId) {
-      router.replace("/profile");
-    }
-  }, [currentUser, userId, router]);
-
   // Fetch User & Stats
   useEffect(() => {
+    // 如果 Auth 还在加载中，什么都不做，等待 settle
+    if (authLoading) return;
+
+    // Redirect to profile if visiting own page
+    if (currentUser?.id === userId) {
+      router.replace("/profile");
+      return;
+    }
+
     const fetchUser = async () => {
       try {
         const headers: any = {};
         if (token) headers.Authorization = `Bearer ${token}`;
 
+        // 无论是否登录，都可以获取用户公开信息
         const res = await fetch(`/api/users/${userId}`, { headers });
         if (res.ok) {
             const data = await res.json();
@@ -94,7 +104,7 @@ export default function UserProfilePage({ params }: { params: Promise<{ id: stri
       }
     };
     fetchUser();
-  }, [userId, router, token]);
+  }, [userId, router, token, currentUser?.id, authLoading]);
 
   const handleFollow = async () => {
     if (!isAuthenticated || !token) {

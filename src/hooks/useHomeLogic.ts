@@ -7,9 +7,18 @@ import { useProducts, useProduct, useLikeProduct } from "@/hooks/useProducts";
 export function useHomeLogic() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const searchParams = useSearchParams();
+
+  // Debounce search query
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   // Data Fetching Hooks
   const { data: rawCategories = [], isLoading: categoriesLoading } = useCategories();
@@ -23,7 +32,7 @@ export function useHomeLogic() {
     isFetchingNextPage
   } = useProducts({
     category: selectedCategory,
-    search: searchQuery,
+    search: debouncedSearchQuery,
   });
 
   const products = data ? data.pages.flatMap(page => page.items || []) : [];

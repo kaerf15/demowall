@@ -78,7 +78,7 @@ const CommentItem = ({
   
   // Calculate profile link
   const profileLink = comment.user 
-    ? (comment.user.id === currentUserId ? "/profile" : `/users/${comment.user.id}`)
+    ? (currentUserId && String(comment.user.id) === String(currentUserId) ? "/profile" : `/users/${comment.user.id}`)
     : null;
 
   const [isExpanded, setIsExpanded] = useState(false);
