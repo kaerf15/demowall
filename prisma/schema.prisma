@@ -10,24 +10,98 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model User {
+  id        String   @id @default(uuid())
+  uuid      String   @unique @default(uuid()) // 保留此字段用于兼容旧逻辑或作为次要标识，或者可以移除
+  username  String   @unique
+  email     String?  @unique
+  contact   String?  // 联系方式
+  bio       String?  // 个人简介
+  title     String?  // 个人标签/头衔
+  password  String
+  avatar    String?  // 头像URL或预设头像标识
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  likes     Like[]
+  favorites Favorite[]
+  comments  Comment[]
+  commentLikes CommentLike[]
+  products  Product[]
+
+  followedBy Follow[] @relation("UserFollows")
+  following  Follow[] @relation("UserFollowing")
+}
+
+model Follow {
+  id          String   @id @default(uuid())
+  followerId  String
+  followingId String
+  createdAt   DateTime @default(now())
+
+  follower    User     @relation("UserFollowing", fields: [followerId], references: [id], onDelete: Cascade)
+  following   User     @relation("UserFollows", fields: [followingId], references: [id], onDelete: Cascade)
+
+  @@index([followerId])
+  @@index([followingId])
+  @@unique([followerId, followingId])
+}
+
 model Product {
   id          String   @id @default(uuid())
   name        String
   description String
+  detail      String?  // 产品详细说明（Markdown）
   websiteUrl  String
   imageUrl    String?
+  images      String?  // JSON string of image URLs
   githubUrl   String?
   twitterUrl  String?
-  makerName   String
-  makerEmail  String
-  makerAvatar String?
-  categoryId  String
-  category    Category @relation(fields: [categoryId], references: [id])
+  categories  Category[]
   tags        Tag[]
-  upvotes     Int      @default(0)
+  likes       Int      @default(0)
+  favorites   Int      @default(0)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   published   Boolean  @default(false)
+
+  userId      String      // 关联到用户表，用于权限控制
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  likedBy     Like[]
+  favoritedBy Favorite[]
+  comments    Comment[]
+
+  @@index([userId])
+  @@unique([userId, name]) // 用户维度下，产品名称不能重复
+}
+
+model Like {
+  id        String   @id @default(uuid())
+  userId    String
+  productId String
+  createdAt DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([productId])
+  @@unique([userId, productId])
+}
+
+model Favorite {
+  id        String   @id @default(uuid())
+  userId    String
+  productId String
+  createdAt DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([productId])
+  @@unique([userId, productId])
 }
 
 model Category {
@@ -35,7 +109,52 @@ model Category {
   name     String    @unique
   slug     String    @unique
   icon     String?
+  order    Int       @default(0)
+  type     String    @default("normal") // "system" | "normal"
   products Product[]
+}
+
+model Comment {
+  id        String   @id @default(uuid())
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  userId    String?
+  productId String
+  parentId  String?
+  guestName   String?
+  guestAvatar String?
+
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  parent    Comment? @relation("CommentToComment", fields: [parentId], references: [id], onDelete: Cascade)
+  replies   Comment[] @relation("CommentToComment")
+  
+  rootId    String?
+  root      Comment? @relation("CommentRoot", fields: [rootId], references: [id], onDelete: Cascade)
+  descendants Comment[] @relation("CommentRoot")
+
+  likes     Int           @default(0)
+  likedBy   CommentLike[]
+
+  @@index([userId])
+  @@index([productId])
+  @@index([parentId])
+  @@index([rootId])
+}
+
+model CommentLike {
+  id        String   @id @default(uuid())
+  userId    String
+  commentId String
+  createdAt DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  comment Comment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([commentId])
+  @@unique([userId, commentId])
 }
 
 model Tag {

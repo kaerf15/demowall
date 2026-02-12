@@ -7,6 +7,10 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       {
         protocol: "https",
+        hostname: "sdafafsasgvagdfs.oss-cn-beijing.aliyuncs.com",
+      },
+      {
+        protocol: "https",
         hostname: "**",
       },
     ],

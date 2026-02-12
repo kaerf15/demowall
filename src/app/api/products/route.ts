@@ -1,74 +1,82 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { verifyAuth } from "@/lib/auth";
+import { productService } from "@/services/product.service";
+import { withErrorHandler, UnauthorizedError } from "@/lib/api-error";
 
-export async function GET(request: NextRequest) {
+export const GET = withErrorHandler(async (request: Request) => {
+  const { searchParams } = new URL(request.url);
+  const category = searchParams.get("category");
+  const search = searchParams.get("search");
+  const type = searchParams.get("type"); // "created" | "liked" | "favorited"
+  const targetUserIdParam = searchParams.get("userId");
+  const targetUserId = targetUserIdParam || undefined;
+
+  let userId: string | undefined;
+
+  // 尝试获取当前登录用户，即使用户不要求特定 type
+  // 这样可以在所有查询中返回 hasLiked/hasFavorited 状态
   try {
-    const { searchParams } = new URL(request.url);
-    const category = searchParams.get("category");
-    const search = searchParams.get("search");
-
-    const products = await prisma.product.findMany({
-      where: {
-        published: true,
-        ...(category && category !== "all" && {
-          category: { slug: category },
-        }),
-        ...(search && {
-          OR: [
-            { name: { contains: search } },
-            { description: { contains: search } },
-          ],
-        }),
-      },
-      include: {
-        category: true,
-        tags: true,
-      },
-      orderBy: { upvotes: "desc" },
-    });
-
-    return NextResponse.json(products);
-  } catch (error) {
-    console.error("Error fetching products:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch products" },
-      { status: 500 }
-    );
+    const user = verifyAuth(request as NextRequest);
+    if (user) {
+      userId = String(user.userId);
+    }
+  } catch (e) {
+    // 忽略 token 验证错误，视为未登录
   }
-}
 
-export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json();
-    const {
+  // 如果是用户相关的强制查询，需要验证登录或提供 targetUserId
+  if (type && ["created", "liked", "favorited"].includes(type)) {
+    if (!userId && !targetUserId) {
+      throw new UnauthorizedError("请先登录或指定用户");
+    }
+  }
+
+  const products = await productService.getProducts({
+    category,
+    search,
+    type,
+    userId,
+    targetUserId,
+  });
+
+  const formattedProducts = products.map((product) => ({
+    ...product,
+    createdAt: product.createdAt.toISOString(),
+    updatedAt: product.updatedAt.toISOString(),
+  }));
+
+  return NextResponse.json(formattedProducts);
+});
+
+export const POST = withErrorHandler(async (request: Request) => {
+  const user = verifyAuth(request as NextRequest);
+  if (!user) {
+    throw new UnauthorizedError("请先登录");
+  }
+
+  const body = await request.json();
+  const {
+    name,
+    description,
+    detail,
+    websiteUrl,
+    githubUrl,
+    categoryIds,
+    images,
+  } = body;
+
+  const product = await productService.createProduct(
+    {
       name,
       description,
+      detail,
       websiteUrl,
       githubUrl,
-      makerName,
-      makerEmail,
-      categoryId,
-    } = body;
+      categoryIds,
+      images,
+    },
+    user.userId
+  );
 
-    const product = await prisma.product.create({
-      data: {
-        name,
-        description,
-        websiteUrl,
-        githubUrl,
-        makerName,
-        makerEmail,
-        categoryId,
-        published: false, // 需要审核后发布
-      },
-    });
-
-    return NextResponse.json(product, { status: 201 });
-  } catch (error) {
-    console.error("Error creating product:", error);
-    return NextResponse.json(
-      { error: "Failed to create product" },
-      { status: 500 }
-    );
-  }
-}
+  return NextResponse.json(product, { status: 201 });
+});

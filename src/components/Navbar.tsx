@@ -1,8 +1,21 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Avatar } from "@/components/ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { AuthDialog } from "@/components/AuthDialog";
+import { FluidLogo } from "@/components/FluidLogo";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface NavbarProps {
   onSearch?: (query: string) => void;
@@ -10,23 +23,39 @@ interface NavbarProps {
 }
 
 export function Navbar({ onSearch, searchQuery = "" }: NavbarProps) {
+  const router = useRouter();
+  const { user, logout } = useAuth();
+  const [placeholder, setPlaceholder] = useState("发现/分享你的产品");
+
+  useEffect(() => {
+    // 轮播 placeholder 文本
+    const texts = ["发现/分享你的产品", "找到志同道合的朋友"];
+    let index = 0;
+    const interval = setInterval(() => {
+      index = (index + 1) % texts.length;
+      setPlaceholder(texts[index]);
+    }, 5000); // 每5秒切换一次
+
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleLogout = () => {
+    logout();
+  };
+
   return (
-    <nav className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
-          <Link href="/" className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-lg">D</span>
-            </div>
-            <span className="font-bold text-xl bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-              DemoWall
-            </span>
+    <nav className="sticky top-0 z-50 bg-background/80 backdrop-blur-xl border-b border-border/50">
+      <div className="w-full px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center h-16 gap-2 sm:gap-6">
+          {/* ... existing Logo and Search */}
+          <Link href="/" className="flex items-center gap-2.5 group shrink-0 relative z-10">
+            <FluidLogo />
           </Link>
 
-          <div className="flex-1 max-w-md mx-4">
-            <div className="relative">
+          <div className="flex-1 min-w-0 relative z-0">
+            <div className="relative group">
               <svg
-                className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"
+                className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -40,32 +69,74 @@ export function Navbar({ onSearch, searchQuery = "" }: NavbarProps) {
               </svg>
               <Input
                 type="text"
-                placeholder="搜索产品..."
+                placeholder={placeholder}
                 value={searchQuery}
                 onChange={(e) => onSearch?.(e.target.value)}
-                className="pl-10 w-full"
+                className="pl-10 w-full bg-secondary/50 border-0 focus-visible:ring-2 focus-visible:ring-primary/30 rounded-xl transition-all duration-300 max-sm:text-[10px] max-sm:placeholder:text-[10px] max-sm:h-8"
               />
             </div>
           </div>
 
-          <Link href="/submit">
-            <Button className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700">
-              <svg
-                className="w-4 h-4 mr-2"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 4v16m8-8H4"
-                />
-              </svg>
-              提交产品
-            </Button>
-          </Link>
+          <div className="flex items-center gap-2 shrink-0 relative z-10">
+            {user ? (
+               <Link href="/submit">
+                <Button size="icon" variant="ghost" className="rounded-full" title="提交产品">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                </Button>
+              </Link>
+            ) : (
+              <AuthDialog>
+                <Button size="icon" variant="ghost" className="rounded-full" title="提交产品">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                </Button>
+              </AuthDialog>
+            )}
+
+            {user ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className="relative w-8 h-8 rounded-full overflow-hidden hover:ring-2 hover:ring-primary/20 transition-all focus:outline-none max-xs:hidden">
+                    <Avatar 
+                      src={user.avatar} 
+                      fallback={user.username} 
+                      className="w-full h-full" 
+                    />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuItem asChild>
+                    <Link href="/profile" className="cursor-pointer">
+                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                      </svg>
+                      个人中心
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-destructive focus:text-destructive">
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                    </svg>
+                    退出登录
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <div className="max-xs:hidden">
+                <AuthDialog>
+                  <Button size="icon" variant="ghost" className="rounded-full" title="登录/注册">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                  </Button>
+                </AuthDialog>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </nav>
