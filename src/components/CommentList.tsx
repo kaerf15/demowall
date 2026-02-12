@@ -1,8 +1,10 @@
 "use client";
 
 import { useState, useEffect, forwardRef, useImperativeHandle } from "react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Avatar } from "@/components/ui/avatar";
 import { formatDistanceToNow } from "date-fns";
 import { zhCN } from "date-fns/locale";
 import { AuthDialog } from "@/components/AuthDialog";
@@ -66,11 +68,18 @@ const CommentItem = ({
   onLike,
   currentUserId
 }: CommentItemProps) => {
-  const avatar = comment.user?.avatar || comment.guestAvatar;
+  const avatarRaw = comment.user?.avatar || comment.guestAvatar;
+  // 兼容旧数据：如果头像是 placeholder-avatar.png，则视为无头像
+  const avatarSrc = (avatarRaw && avatarRaw !== "/placeholder-avatar.png") ? avatarRaw : null;
+  
   const username = comment.user?.username || comment.guestName || "匿名用户";
-  const initial = username.charAt(0).toUpperCase();
 
   const isSelfReply = comment.replyToUser && currentUserId === comment.replyToUser.id;
+  
+  // Calculate profile link
+  const profileLink = comment.user 
+    ? (comment.user.id === currentUserId ? "/profile" : `/users/${comment.user.id}`)
+    : null;
 
   const [isExpanded, setIsExpanded] = useState(false);
   const replies = comment.replies || [];
@@ -81,21 +90,31 @@ const CommentItem = ({
   return (
     <div className={`flex gap-3 ${isReply ? "mt-3" : "mt-6 first:mt-0"}`}>
       <div className="flex-shrink-0">
-        {avatar ? (
-          <img
-            src={avatar}
-            alt={username}
-            className="w-8 h-8 rounded-full object-cover border border-border/50"
-          />
+        {profileLink ? (
+          <Link href={profileLink} className="block hover:opacity-80 transition-opacity">
+            <Avatar
+              src={avatarSrc || undefined}
+              fallback={username}
+              className="w-8 h-8 border border-border/50"
+            />
+          </Link>
         ) : (
-          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white text-xs font-bold shadow-sm">
-            {initial}
-          </div>
+          <Avatar
+            src={avatarSrc || undefined}
+            fallback={username}
+            className="w-8 h-8 border border-border/50"
+          />
         )}
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-1">
-          <span className="font-semibold text-sm text-foreground/90 truncate">{username}</span>
+          {profileLink ? (
+            <Link href={profileLink} className="font-semibold text-sm text-foreground/90 truncate hover:text-primary transition-colors hover:underline">
+              {username}
+            </Link>
+          ) : (
+            <span className="font-semibold text-sm text-foreground/90 truncate">{username}</span>
+          )}
           <span className="text-xs text-muted-foreground flex-shrink-0">
             {formatDistanceToNow(new Date(comment.createdAt), {
               addSuffix: true,

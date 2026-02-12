@@ -26,6 +26,7 @@ export interface ProductFormData {
   githubUrl?: string;
   categoryIds: string[];
   images: string[];
+  status?: string;
 }
 
 interface ProductFormProps {
@@ -140,8 +141,7 @@ export function ProductForm({
     });
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const submitWithStatus = async (status: string) => {
     if (formData.categoryIds.length === 0) {
       toast.error("请至少选择一个分类");
       return;
@@ -167,10 +167,15 @@ export function ProductForm({
 
     setIsSubmitting(true);
     try {
-      await onSubmit(formData);
+      await onSubmit({ ...formData, status });
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await submitWithStatus("PUBLISHED");
   };
 
   return (
@@ -285,12 +290,12 @@ export function ProductForm({
             <div>
               <label className="block text-sm font-semibold mb-2 text-foreground">产品链接 (可选)</label>
               <Input
-                type="url"
+                type="text"
                 value={formData.websiteUrl}
                 onChange={(e) =>
                   setFormData({ ...formData, websiteUrl: e.target.value })
                 }
-                placeholder="https://example.com"
+                placeholder="example.com"
                 className="bg-secondary/30 border-0 focus-visible:ring-2 focus-visible:ring-primary/30"
               />
             </div>
@@ -316,10 +321,19 @@ export function ProductForm({
             </div>
           </div>
 
-          <div className="pt-4">
+          <div className="pt-4 flex gap-4">
+            <Button 
+              type="button"
+              variant="secondary"
+              className="flex-1 h-12 text-lg font-bold rounded-xl"
+              disabled={isSubmitting}
+              onClick={() => submitWithStatus("DRAFT")}
+            >
+              保存草稿
+            </Button>
             <Button 
               type="submit" 
-              className="w-full h-12 text-lg font-bold rounded-xl shadow-lg shadow-primary/20 hover:shadow-primary/40 transition-all duration-300"
+              className="flex-1 h-12 text-lg font-bold rounded-xl shadow-lg shadow-primary/20 hover:shadow-primary/40 transition-all duration-300"
               disabled={isSubmitting}
             >
               {isSubmitting ? (

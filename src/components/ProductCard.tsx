@@ -65,6 +65,13 @@ export function ProductCard({ product, onClick, action }: ProductCardProps) {
       onClick={onClick}
     >
       <div className="aspect-video relative overflow-hidden bg-muted">
+        {product.status === 'DRAFT' && (
+           <div className="absolute top-2 left-2 z-10">
+             <Badge variant="destructive" className="bg-yellow-500/80 text-white border-0 hover:bg-yellow-600/80 text-[10px] px-1.5 py-0.5">
+               草稿
+             </Badge>
+           </div>
+        )}
         {product.imageUrl ? (
           <Image
             src={product.imageUrl}

@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQueryClient, useQuery, InfiniteData } from "@tanstack/react-query";
 import { Product } from "@/types";
 
 interface UseProductsOptions {
@@ -8,12 +8,19 @@ interface UseProductsOptions {
   userId?: string | null;
 }
 
-async function fetchProducts({ category, search, type, userId }: UseProductsOptions): Promise<Product[]> {
+interface ProductsResponse {
+  items: Product[];
+  nextCursor?: string | null;
+}
+
+async function fetchProducts({ category, search, type, userId, pageParam }: UseProductsOptions & { pageParam?: string | null }): Promise<ProductsResponse> {
   const params = new URLSearchParams();
   if (category && category !== "all") params.append("category", category);
   if (search) params.append("search", search);
   if (type) params.append("type", type);
   if (userId) params.append("userId", userId.toString());
+  if (pageParam) params.append("cursor", pageParam);
+  params.append("limit", "12"); // Fetch 12 items per page
 
   const token = localStorage.getItem("token");
   const headers: Record<string, string> = {};
@@ -26,12 +33,16 @@ async function fetchProducts({ category, search, type, userId }: UseProductsOpti
     throw new Error("Failed to fetch products");
   }
   const data = await res.json();
-  if (!Array.isArray(data)) {
-    // Fallback if API returns unexpected format
-    console.error("Products data is not an array:", data);
-    return [];
+  
+  // Backwards compatibility if API returns array directly (during migration)
+  if (Array.isArray(data)) {
+    return { items: data, nextCursor: null };
   }
-  return data;
+  
+  return {
+    items: Array.isArray(data.items) ? data.items : [],
+    nextCursor: data.nextCursor
+  };
 }
 
 async function toggleLikeProduct({ id, isLiked }: { id: string; isLiked: boolean }): Promise<void> {
@@ -77,9 +88,11 @@ async function toggleFavoriteProduct({ id, isFavorited }: { id: string; isFavori
 }
 
 export function useProducts(options: UseProductsOptions = {}) {
-  return useQuery({
+  return useInfiniteQuery({
     queryKey: ["products", options.category, options.search, options.type, options.userId],
-    queryFn: () => fetchProducts(options),
+    queryFn: ({ pageParam }) => fetchProducts({ ...options, pageParam }),
+    initialPageParam: null as string | null,
+    getNextPageParam: (lastPage) => lastPage.nextCursor,
     staleTime: 60 * 1000,
   });
 }
@@ -99,18 +112,24 @@ export function useLikeProduct() {
       const previousProduct = queryClient.getQueryData(["product", id]);
 
       // Optimistically update products lists
-      queryClient.setQueriesData({ queryKey: ["products"] }, (old: Product[] | undefined) => {
-        if (!old) return [];
-        return old.map((product) => {
-          if (product.id === id) {
-            return {
-              ...product,
-              hasLiked: !isLiked,
-              likes: isLiked ? product.likes - 1 : product.likes + 1,
-            };
-          }
-          return product;
-        });
+      queryClient.setQueriesData({ queryKey: ["products"] }, (old: InfiniteData<ProductsResponse> | undefined) => {
+        if (!old) return old;
+        return {
+          ...old,
+          pages: old.pages.map(page => ({
+            ...page,
+            items: page.items.map(product => {
+              if (product.id === id) {
+                return {
+                  ...product,
+                  hasLiked: !isLiked,
+                  likes: isLiked ? product.likes - 1 : product.likes + 1,
+                };
+              }
+              return product;
+            })
+          }))
+        };
       });
 
       // Optimistically update single product
@@ -154,18 +173,24 @@ export function useFavoriteProduct() {
       const previousProducts = queryClient.getQueriesData({ queryKey: ["products"] });
       const previousProduct = queryClient.getQueryData(["product", id]);
 
-      queryClient.setQueriesData({ queryKey: ["products"] }, (old: Product[] | undefined) => {
-        if (!old) return [];
-        return old.map((product) => {
-          if (product.id === id) {
-            return {
-              ...product,
-              hasFavorited: !isFavorited,
-              favorites: isFavorited ? product.favorites - 1 : product.favorites + 1,
-            };
-          }
-          return product;
-        });
+      queryClient.setQueriesData({ queryKey: ["products"] }, (old: InfiniteData<ProductsResponse> | undefined) => {
+        if (!old) return old;
+        return {
+          ...old,
+          pages: old.pages.map(page => ({
+            ...page,
+            items: page.items.map(product => {
+              if (product.id === id) {
+                return {
+                  ...product,
+                  hasFavorited: !isFavorited,
+                  favorites: isFavorited ? product.favorites - 1 : product.favorites + 1,
+                };
+              }
+              return product;
+            })
+          }))
+        };
       });
 
       if (previousProduct) {

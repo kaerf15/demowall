@@ -38,7 +38,7 @@ export const GET = withErrorHandler(async (request: Request, { params }: { param
 
   // 获取获赞数 (所有发布产品的点赞总和)
   const products = await prisma.product.findMany({
-    where: { userId: targetUserId, published: true },
+    where: { userId: targetUserId, status: "PUBLISHED" },
     select: { likes: true, favorites: true },
   });
 

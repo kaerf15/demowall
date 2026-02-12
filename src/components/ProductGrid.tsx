@@ -1,17 +1,36 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useInView } from "react-intersection-observer";
 import { ProductCard } from "./ProductCard";
 import { Product } from "@/types";
 
 interface ProductGridProps {
   products: Product[];
   onProductClick?: (product: Product) => void;
+  onLoadMore?: () => void;
+  hasMore?: boolean;
+  isLoadingMore?: boolean;
 }
 
-export function ProductGrid({ products, onProductClick }: ProductGridProps) {
+export function ProductGrid({ 
+  products, 
+  onProductClick,
+  onLoadMore,
+  hasMore = false,
+  isLoadingMore = false,
+}: ProductGridProps) {
   const [columns, setColumns] = useState(1);
   const [mounted, setMounted] = useState(false);
+  const { ref, inView } = useInView({
+    rootMargin: "200px", // Trigger loading 200px before reaching bottom
+  });
+
+  useEffect(() => {
+    if (inView && hasMore && !isLoadingMore) {
+      onLoadMore?.();
+    }
+  }, [inView, hasMore, isLoadingMore, onLoadMore]);
 
   useEffect(() => {
     // Wrap setMounted in requestAnimationFrame or setTimeout to avoid synchronous update warning
@@ -82,23 +101,41 @@ export function ProductGrid({ products, onProductClick }: ProductGridProps) {
   });
 
   return (
-    <div className="flex gap-1 items-start">
-      {columnProducts.map((col, colIndex) => (
-        <div key={colIndex} className="flex flex-col gap-1 flex-1 min-w-0">
-          {col.map(({ product, index }) => (
-            <div
-              key={product.id}
-              className="animate-fadeIn"
-              style={{ animationDelay: `${index * 50}ms` }}
-            >
-              <ProductCard
-                product={product}
-                onClick={() => onProductClick?.(product)}
-              />
-            </div>
-          ))}
-        </div>
-      ))}
+    <div className="flex flex-col gap-4 pb-8">
+      <div className="flex gap-1 items-start">
+        {columnProducts.map((col, colIndex) => (
+          <div key={colIndex} className="flex flex-col gap-1 flex-1 min-w-0">
+            {col.map(({ product, index }) => (
+              <div
+                key={product.id}
+                className="animate-fadeIn"
+                style={{ animationDelay: `${index * 50}ms` }}
+              >
+                <ProductCard
+                  product={product}
+                  onClick={() => onProductClick?.(product)}
+                />
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+
+      {/* Infinite Scroll Loader */}
+      <div ref={ref} className="flex justify-center py-4 w-full">
+        {isLoadingMore ? (
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <div className="animate-spin rounded-full h-5 w-5 border-2 border-primary/20 border-t-primary" />
+            <span className="text-sm">加载更多...</span>
+          </div>
+        ) : hasMore ? (
+          <div className="h-4" /> // Invisible trigger area
+        ) : products.length > 0 ? (
+          <div className="text-center py-4 text-muted-foreground text-sm">
+            没有更多内容了
+          </div>
+        ) : null}
+      </div>
     </div>
   );
 }

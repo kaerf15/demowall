@@ -12,11 +12,21 @@ export function useHomeLogic() {
   const searchParams = useSearchParams();
 
   // Data Fetching Hooks
-  const { data: categories = [], isLoading: categoriesLoading } = useCategories();
-  const { data: products = [], isLoading: productsLoading } = useProducts({
+  const { data: rawCategories = [], isLoading: categoriesLoading } = useCategories();
+  const categories = Array.isArray(rawCategories) ? rawCategories.filter(c => c.slug !== "recommended") : [];
+  
+  const { 
+    data, 
+    isLoading: productsLoading,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage
+  } = useProducts({
     category: selectedCategory,
     search: searchQuery,
   });
+
+  const products = data ? data.pages.flatMap(page => page.items || []) : [];
 
   const { mutate: toggleLike } = useLikeProduct();
 
@@ -96,5 +106,10 @@ export function useHomeLogic() {
     handleSearch,
     handleProductClick,
     handleUpvote,
+    
+    // Pagination
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
   };
 }

@@ -54,10 +54,12 @@ export default function UserProfilePage({ params }: { params: Promise<{ id: stri
   const [loading, setLoading] = useState(true);
   
   const [activeTab, setActiveTab] = useState("created");
-  const { data: products = [], isLoading: productsLoading } = useProducts({
+  const { data: productsData, isLoading: productsLoading } = useProducts({
     type: activeTab,
     userId: userId,
   });
+
+  const products = productsData ? productsData.pages.flatMap(page => page.items || []) : [];
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
 

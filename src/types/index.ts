@@ -18,6 +18,7 @@ export interface Product {
   likes: number;
   favorites: number;
   createdAt: string;
+  status: string;
   detail?: string | null;
   user?: {
     username: string;

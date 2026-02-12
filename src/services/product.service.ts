@@ -6,6 +6,9 @@ export interface GetProductsParams {
   type?: string | null;
   userId?: string | null;
   targetUserId?: string | null;
+  cursor?: string | null;
+  limit?: number;
+  status?: string | null;
 }
 
 export interface CreateProductData {
@@ -16,14 +19,15 @@ export interface CreateProductData {
   githubUrl?: string;
   categoryIds: string[];
   images?: string[];
+  status?: string;
 }
 
 export const productService = {
   async getProducts(params: GetProductsParams) {
-    const { category, search, type, userId, targetUserId } = params;
+    const { category, search, type, userId, targetUserId, cursor, limit = 10, status } = params;
 
-    let orderBy: any = { likes: "desc" };
-    let where: any = { published: true };
+    let orderBy: any = [{ likes: "desc" }, { id: "desc" }];
+    let where: any = { status: "PUBLISHED" };
 
     // Handle user-specific queries
     if (type && ["created", "liked", "favorited"].includes(type)) {
@@ -34,22 +38,24 @@ export const productService = {
       }
 
       if (type === "created") {
-        where = { userId: filterUserId };
+        where = { userId: filterUserId, status: "PUBLISHED" };
         
         // Only show unpublished products if viewing own profile
         if (userId !== filterUserId) {
-          where.published = true;
+          // Keep status="PUBLISHED"
+        } else if (status) {
+          where.status = status;
         }
         
-        orderBy = { createdAt: "desc" };
+        orderBy = [{ createdAt: "desc" }, { id: "desc" }];
       } else if (type === "liked") {
         where = {
-          published: true,
+          status: "PUBLISHED",
           likedBy: { some: { userId: filterUserId } }
         };
       } else if (type === "favorited") {
         where = {
-          published: true,
+          status: "PUBLISHED",
           favoritedBy: { some: { userId: filterUserId } }
         };
       }
@@ -57,10 +63,14 @@ export const productService = {
       // Public queries
       if (category) {
         if (category === "new") {
-          orderBy = { createdAt: "desc" };
-        } else if (category === "recommended") {
-          orderBy = { likes: "desc" };
-        } else if (category !== "all") {
+          orderBy = [{ createdAt: "desc" }, { id: "desc" }];
+          // Only show products created within the last 15 days
+          const date = new Date();
+          date.setDate(date.getDate() - 15);
+          where.createdAt = {
+            gte: date
+          };
+        } else if (category !== "all" && category !== "recommended") {
           where.categories = { some: { slug: category } };
         }
       }
@@ -78,9 +88,23 @@ export const productService = {
       },
     };
 
+    // If cursor is provided, add it to where clause
+    // Note: This simple cursor implementation assumes sorting by a unique field or combination
+    // For complex sorting (like 'likes'), we need a more robust cursor strategy (e.g. [likes, id])
+    // Here we'll implement a basic one and might need to adjust based on sorting strategy
+    let cursorObj = undefined;
+    if (cursor) {
+      cursorObj = { id: cursor };
+    }
+
     let products = [];
+    let nextCursor = null;
+
     if (search) {
-      // Search logic
+      // Search logic (Client-side filtering for search, no cursor support for now or simple limit)
+      // For search, we might want to just return top N results or implement offset-based pagination if needed
+      // But since we are doing in-memory sorting for search, cursor pagination is tricky.
+      // We will ignore cursor for search and just return limit results or all results.
       const searchWhere = {
         ...where,
         OR: [
@@ -111,13 +135,26 @@ export const productService = {
         };
         return getWeight(b) - getWeight(a);
       });
+      
+      // Since search is in-memory, we can just slice it
+      // But to support infinite scroll with search, we'd need to keep track of offset.
+      // For now, let's return all for search or just slice the first 'limit' if no cursor logic for search.
+      // Or better: Search usually resets list.
     } else {
-      // Standard query
+      // Standard query with Cursor Pagination
       products = await prisma.product.findMany({
         where,
         include,
         orderBy,
+        take: limit + 1, // Fetch one more to check if there is a next page
+        cursor: cursorObj,
+        skip: cursor ? 1 : 0, // Skip the cursor itself
       });
+
+      if (products.length > limit) {
+        const nextItem = products.pop(); // Remove the extra item
+        nextCursor = nextItem?.id;
+      }
     }
 
     // Enhance with user specific data if userId is provided
@@ -145,18 +182,28 @@ export const productService = {
         }).then(favs => new Set(favs.map(f => f.productId)))
       ]);
 
-      return products.map(product => ({
+      const enhancedProducts = products.map(product => ({
         ...product,
         hasLiked: likedProductIds.has(product.id),
         hasFavorited: favoritedProductIds.has(product.id)
       }));
+
+      return {
+        items: enhancedProducts,
+        nextCursor
+      };
     }
 
-    return products.map(product => ({
+    const enhancedProducts = products.map(product => ({
       ...product,
       hasLiked: false,
       hasFavorited: false
     }));
+
+    return {
+      items: enhancedProducts,
+      nextCursor
+    };
   },
 
   async createProduct(data: CreateProductData, userId: string) {
@@ -187,7 +234,7 @@ export const productService = {
         categories: {
           connect: data.categoryIds.map((id) => ({ id })),
         },
-        published: true,
+        status: data.status || "DRAFT",
       },
     });
   },

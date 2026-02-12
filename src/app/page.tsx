@@ -21,6 +21,9 @@ export default function Home() {
     handleSearch,
     handleProductClick,
     handleUpvote,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
   } = useHomeLogic();
 
   return (
@@ -45,7 +48,13 @@ export default function Home() {
             <p className="mt-4 text-muted-foreground text-sm">加载中...</p>
           </div>
         ) : (
-          <ProductGrid products={products} onProductClick={handleProductClick} />
+          <ProductGrid 
+            products={products} 
+            onProductClick={handleProductClick}
+            onLoadMore={fetchNextPage}
+            hasMore={hasNextPage}
+            isLoadingMore={isFetchingNextPage}
+          />
         )}
       </main>
 

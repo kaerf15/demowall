@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
 
     // 获取获赞数 (所有发布产品的点赞总和)
     const products = await prisma.product.findMany({
-      where: { userId: userId, published: true },
+      where: { userId: userId, status: "PUBLISHED" },
       select: { likes: true, favorites: true },
     });
 

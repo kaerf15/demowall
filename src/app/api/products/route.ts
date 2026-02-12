@@ -10,6 +10,10 @@ export const GET = withErrorHandler(async (request: Request) => {
   const type = searchParams.get("type"); // "created" | "liked" | "favorited"
   const targetUserIdParam = searchParams.get("userId");
   const targetUserId = targetUserIdParam || undefined;
+  const cursor = searchParams.get("cursor");
+  const limitParam = searchParams.get("limit");
+  const limit = limitParam ? parseInt(limitParam) : 10;
+  const status = searchParams.get("status") || undefined;
 
   let userId: string | undefined;
 
@@ -31,21 +35,27 @@ export const GET = withErrorHandler(async (request: Request) => {
     }
   }
 
-  const products = await productService.getProducts({
+  const result = await productService.getProducts({
     category,
     search,
     type,
     userId,
     targetUserId,
+    cursor,
+    limit,
+    status,
   });
 
-  const formattedProducts = products.map((product) => ({
+  const formattedItems = result.items.map((product) => ({
     ...product,
     createdAt: product.createdAt.toISOString(),
     updatedAt: product.updatedAt.toISOString(),
   }));
 
-  return NextResponse.json(formattedProducts);
+  return NextResponse.json({
+    items: formattedItems,
+    nextCursor: result.nextCursor
+  });
 });
 
 export const POST = withErrorHandler(async (request: Request) => {
@@ -63,6 +73,7 @@ export const POST = withErrorHandler(async (request: Request) => {
     githubUrl,
     categoryIds,
     images,
+    status,
   } = body;
 
   const product = await productService.createProduct(
@@ -74,6 +85,7 @@ export const POST = withErrorHandler(async (request: Request) => {
       githubUrl,
       categoryIds,
       images,
+      status,
     },
     user.userId
   );

@@ -87,14 +87,28 @@ async function main() {
   // Note: bcrypt hash for "password123"
   const defaultPassword = await bcrypt.hash("password123", 10);
   
-  for (let i = 0; i < makerNames.length; i++) {
-    const name = makerNames[i];
+  // 50 realistic users
+  const realisticNames = [
+    "James", "Mary", "Robert", "Patricia", "John", "Jennifer", "Michael", "Linda", "David", "Elizabeth",
+    "William", "Barbara", "Richard", "Susan", "Joseph", "Jessica", "Thomas", "Sarah", "Charles", "Karen",
+    "Christopher", "Nancy", "Daniel", "Lisa", "Matthew", "Betty", "Anthony", "Margaret", "Mark", "Sandra",
+    "Donald", "Ashley", "Steven", "Kimberly", "Paul", "Emily", "Andrew", "Donna", "Joshua", "Michelle",
+    "Kenneth", "Dorothy", "Kevin", "Carol", "Brian", "Amanda", "George", "Melissa", "Edward", "Deborah"
+  ];
+
+  for (let i = 0; i < realisticNames.length; i++) {
+    const name = realisticNames[i];
+    // Add some randomness to emails to avoid potential conflicts if script runs multiple times
+    const emailSuffix = Math.floor(Math.random() * 1000);
     const user = await prisma.user.create({
       data: {
         username: name,
-        email: `${name.toLowerCase()}@example.com`,
+        email: `${name.toLowerCase()}${emailSuffix}@example.com`,
         password: defaultPassword,
         avatar: makerAvatars[i % makerAvatars.length],
+        bio: `Hello, I'm ${name}. I love exploring new products and technologies.`,
+        title: ["Product Manager", "Developer", "Designer", "Indie Hacker"][i % 4],
+        contact: `Email: ${name.toLowerCase()}${emailSuffix}@example.com\nTwitter: @${name.toLowerCase()}`,
       }
     });
     users.push(user);
@@ -104,7 +118,7 @@ async function main() {
   // Create Categories with order
   const categories = [
     { name: "推荐", slug: "recommended", icon: "star", type: "system" },
-    { name: "新产品", slug: "new", icon: "sparkles", type: "system" }, // New system category
+    { name: "最新", slug: "new", icon: "sparkles", type: "system" }, // New system category
     { name: "工具", slug: "tools", icon: "tool" },
     { name: "效率", slug: "productivity", icon: "zap" },
     { name: "社交", slug: "social", icon: "users" },
@@ -166,7 +180,7 @@ async function main() {
         websiteUrl: "https://example.com",
         imageUrl: getRandomItem(productImages),
         userId: maker.id,
-        published: true,
+        status: "PUBLISHED",
         likes: Math.floor(Math.random() * 500) + 10,
         favorites: Math.floor(Math.random() * 200) + 5,
         categories: {

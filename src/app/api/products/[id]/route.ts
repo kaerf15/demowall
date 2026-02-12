@@ -63,6 +63,7 @@ export async function PUT(
       websiteUrl,
       githubUrl,
       categoryIds,
+      status,
     } = body;
 
     // 1. 检查产品是否存在
@@ -114,6 +115,7 @@ export async function PUT(
       detail,
       websiteUrl: websiteUrl || "",
       githubUrl,
+      status: status,
     };
 
     if (categoryIds) {

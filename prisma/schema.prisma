@@ -33,6 +33,17 @@ model User {
   following  Follow[] @relation("UserFollowing")
 }
 
+model VerificationCode {
+  id        String   @id @default(uuid())
+  email     String
+  code      String
+  type      String   // REGISTER, LOGIN, RESET_PASSWORD
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([email, type, code])
+}
+
 model Follow {
   id          String   @id @default(uuid())
   followerId  String
@@ -63,7 +74,7 @@ model Product {
   favorites   Int      @default(0)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  published   Boolean  @default(false)
+  status      String   @default("DRAFT") // DRAFT, PUBLISHED, ARCHIVED
 
   userId      String      // 关联到用户表，用于权限控制
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -73,6 +84,7 @@ model Product {
   comments    Comment[]
 
   @@index([userId])
+  @@index([status])
   @@unique([userId, name]) // 用户维度下，产品名称不能重复
 }
 

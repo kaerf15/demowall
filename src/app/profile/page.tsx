@@ -26,7 +26,7 @@ import { Product, Category } from "@/types";
 import { useAuth } from "@/contexts/AuthContext";
 
 interface User {
-  id: number;
+  id: string;
   username: string;
   email: string | null;
   avatar?: string;
@@ -42,7 +42,7 @@ import { Navbar } from "@/components/Navbar";
 
 export default function ProfilePage() {
   const router = useRouter();
-  const { user: authUser, token, isAuthenticated } = useAuth();
+  const { user: authUser, token, isAuthenticated, updateUser } = useAuth();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("created");
@@ -126,7 +126,7 @@ export default function ProfilePage() {
   useEffect(() => {
     fetch("/api/categories")
       .then((res) => res.json())
-      .then((data) => setCategories(data))
+      .then((data) => setCategories(Array.isArray(data) ? data : []))
       .catch(console.error);
 
     if (user && token) {
@@ -150,12 +150,21 @@ export default function ProfilePage() {
     const fetchProducts = async () => {
       setProductsLoading(true);
       try {
-        const res = await fetch(`/api/products?type=${activeTab}`, {
+        let url = `/api/products?type=${activeTab}`;
+        if (activeTab === "drafts") {
+          url = `/api/products?type=created&status=DRAFT`;
+        } else if (activeTab === "created") {
+           // Explicitly ask for PUBLISHED to be safe, though default is PUBLISHED
+           url = `/api/products?type=created&status=PUBLISHED`;
+        }
+
+        const res = await fetch(url, {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (res.ok) {
           const data = await res.json();
-          setProducts(data);
+          const items = data.items || [];
+          setProducts(Array.isArray(items) ? items : []);
         }
       } catch (error) {
         console.error("Failed to fetch products", error);
@@ -252,11 +261,11 @@ export default function ProfilePage() {
     if (!file) return;
 
     if (!file.type.startsWith("image/")) {
-      alert("请上传图片文件");
+      toast.error("请上传图片文件");
       return;
     }
     if (file.size > 5 * 1024 * 1024) {
-      alert("图片大小不能超过 5MB");
+      toast.error("图片大小不能超过 5MB");
       return;
     }
 
@@ -289,9 +298,13 @@ export default function ProfilePage() {
         if (res.ok) {
           const data = await res.json();
           handleProfileUpdate(data.user);
+          toast.success("头像更新成功");
+        } else {
+          const errorData = await res.json();
+          toast.error(errorData.error || "更新头像失败");
         }
       } else {
-        alert("上传失败: " + uploadData.error);
+        toast.error("上传失败: " + uploadData.error);
       }
     } catch (error) {
       console.error("Upload error", error);
@@ -315,11 +328,8 @@ export default function ProfilePage() {
       bio: updatedUser.bio || "",
       title: updatedUser.title || "",
     }));
-    // Update local storage if needed, or just rely on state
-    const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
-    const newUser = { ...currentUser, ...updatedUser };
-    localStorage.setItem("user", JSON.stringify(newUser));
-    window.dispatchEvent(new Event("user-login"));
+    // Update auth context
+    updateUser(updatedUser);
   };
 
   const handleCopyContact = async (e: React.MouseEvent, text: string, index: number) => {
@@ -515,9 +525,10 @@ export default function ProfilePage() {
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="mb-6">
-            <TabsTrigger value="created">发布的作品</TabsTrigger>
-            <TabsTrigger value="favorited">收藏的作品</TabsTrigger>
-            <TabsTrigger value="liked">点赞的作品</TabsTrigger>
+            <TabsTrigger value="created">已发布</TabsTrigger>
+            <TabsTrigger value="drafts">草稿箱</TabsTrigger>
+            <TabsTrigger value="favorited">收藏</TabsTrigger>
+            <TabsTrigger value="liked">点赞</TabsTrigger>
           </TabsList>
 
           <TabsContent value={activeTab}>
@@ -535,7 +546,7 @@ export default function ProfilePage() {
                     product={product}
                     onClick={() => setSelectedProduct(product)}
                     action={
-                      activeTab === "created" ? (
+                      (activeTab === "created" || activeTab === "drafts") ? (
                         <div className="flex items-center gap-1">
                           <Button
                             variant="ghost"
