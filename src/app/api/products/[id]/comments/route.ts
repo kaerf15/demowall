@@ -5,7 +5,7 @@ import { withErrorHandler, UnauthorizedError, BadRequestError } from "@/lib/api-
 
 // 获取评论列表
 export const GET = withErrorHandler(async (request: Request, { params }: { params: Promise<{ id: string }> }) => {
-  const user = verifyAuth(request as NextRequest);
+  const user = await verifyAuth(request as NextRequest);
   const userId = user?.userId;
 
   const { id } = await params;
@@ -85,7 +85,7 @@ export const GET = withErrorHandler(async (request: Request, { params }: { param
 
 // 发表评论
 export const POST = withErrorHandler(async (request: Request, { params }: { params: Promise<{ id: string }> }) => {
-  const user = verifyAuth(request as NextRequest);
+  const user = await verifyAuth(request as NextRequest);
   if (!user) {
     throw new UnauthorizedError("请先登录");
   }

@@ -52,17 +52,39 @@ export const POST = withErrorHandler(async (request: Request) => {
     });
 
     if (!validCode) {
-      throw new BadRequestError("验证码无效或已过期");
+      throw new UnauthorizedError("验证码无效或已过期");
     }
 
-    // 验证通过，删除验证码
+    // 删除验证码
     await prisma.verificationCode.delete({ where: { id: validCode.id } });
   } else {
     throw new BadRequestError("不支持的登录方式");
   }
 
-  // 3. 生成 Token
-  const token = signToken({ userId: user.id, username: user.username });
+  // 3. 更新最后登录时间
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { lastLoginAt: new Date() },
+  });
+
+  // 记录登录日志
+  const ip = request.headers.get("x-forwarded-for") || "unknown";
+  const userAgent = request.headers.get("user-agent") || "unknown";
+  
+  await prisma.loginLog.create({
+    data: {
+      userId: user.id,
+      ipAddress: ip,
+      userAgent: userAgent,
+    }
+  });
+
+  // 4. 生成 Token
+  const token = signToken({
+    userId: user.id,
+    username: user.username,
+    role: user.role,
+  });
 
   return NextResponse.json({
     user: {
@@ -70,6 +92,7 @@ export const POST = withErrorHandler(async (request: Request) => {
       username: user.username,
       email: user.email,
       avatar: user.avatar,
+      role: user.role,
     },
     token,
   });

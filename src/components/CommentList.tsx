@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, forwardRef, useImperativeHandle } from "react";
+import { useState, useEffect, forwardRef, useImperativeHandle, useRef } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -8,10 +8,20 @@ import { Avatar } from "@/components/ui/avatar";
 import { formatDistanceToNow } from "date-fns";
 import { zhCN } from "date-fns/locale";
 import { AuthDialog } from "@/components/AuthDialog";
-import { Heart, Send } from "lucide-react";
+import { Heart, Send, Trash2 } from "lucide-react";
 import jwt from "jsonwebtoken";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface User {
   id: string;
@@ -53,6 +63,7 @@ interface CommentItemProps {
   onSubmitReply: (parentId: string) => void;
   submitting: boolean;
   onLike: (commentId: string, hasLiked: boolean) => void;
+  onDelete: (commentId: string) => void;
   currentUserId: string | null;
 }
 
@@ -66,6 +77,7 @@ const CommentItem = ({
   onSubmitReply,
   submitting,
   onLike,
+  onDelete,
   currentUserId
 }: CommentItemProps) => {
   const avatarRaw = comment.user?.avatar || comment.guestAvatar;
@@ -146,6 +158,16 @@ const CommentItem = ({
             <Heart className={`w-3.5 h-3.5 ${comment.hasLiked ? "fill-destructive text-destructive" : "group-hover:text-destructive"}`} />
             <span>{comment.likes > 0 ? comment.likes : "赞"}</span>
           </button>
+
+          {currentUserId && comment.user && String(comment.user.id) === String(currentUserId) && (
+            <button
+              onClick={() => onDelete(comment.id)}
+              className="text-xs text-muted-foreground hover:text-destructive transition-colors font-medium flex items-center gap-1"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              删除
+            </button>
+          )}
         </div>
 
         {/* 回复输入框 */}
@@ -189,6 +211,7 @@ const CommentItem = ({
             onSubmitReply={onSubmitReply}
             submitting={submitting}
             onLike={onLike}
+            onDelete={onDelete}
             currentUserId={currentUserId}
           />
         ))}
@@ -218,8 +241,41 @@ export const CommentList = forwardRef<CommentListRef, CommentListProps>(({ produ
   const [replyContent, setReplyContent] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [showAuthDialog, setShowAuthDialog] = useState(false);
+  const [commentToDelete, setCommentToDelete] = useState<string | null>(null);
   
   const currentUserId = user?.id || null;
+
+  const isMountedRef = useRef(false);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    const count = comments.reduce((acc, curr) => acc + 1 + (curr.replies?.length || 0), 0);
+    onCountChange?.(count);
+  }, [comments, onCountChange]);
+
+  const fetchComments = async () => {
+    try {
+      if (isMountedRef.current) setLoading(true);
+      const headers: any = {};
+      if (token) headers.Authorization = `Bearer ${token}`;
+      
+      const res = await fetch(`/api/products/${productId}/comments`, { headers });
+      if (res.ok && isMountedRef.current) {
+        const data = await res.json();
+        setComments(data);
+      }
+    } catch (error) {
+      console.error("加载评论失败", error);
+    } finally {
+      if (isMountedRef.current) setLoading(false);
+    }
+  };
 
   useImperativeHandle(ref, () => ({
     refresh: fetchComments
@@ -228,24 +284,6 @@ export const CommentList = forwardRef<CommentListRef, CommentListProps>(({ produ
   useEffect(() => {
     fetchComments();
   }, [productId, user]);
-
-  const fetchComments = async () => {
-    try {
-      const headers: any = {};
-      if (token) headers.Authorization = `Bearer ${token}`;
-      
-      const res = await fetch(`/api/products/${productId}/comments`, { headers });
-      if (res.ok) {
-        const data = await res.json();
-        setComments(data);
-        onCountChange?.(data.reduce((acc: number, curr: any) => acc + 1 + (curr.replies?.length || 0), 0));
-      }
-    } catch (error) {
-      console.error("加载评论失败", error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleSubmitReply = async (parentId: string) => {
     if (!replyContent.trim()) return;
@@ -377,11 +415,59 @@ export const CommentList = forwardRef<CommentListRef, CommentListProps>(({ produ
     setReplyContent(content);
   };
 
+  const confirmDeleteComment = async () => {
+    if (!commentToDelete || !token) return;
+
+    try {
+      const res = await fetch(`/api/comments/${commentToDelete}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (res.ok) {
+        toast.success("删除成功");
+        setComments(prev => {
+          const newComments = prev.filter(c => c.id !== commentToDelete).map(c => ({
+            ...c,
+            replies: c.replies ? c.replies.filter(r => r.id !== commentToDelete) : c.replies
+          }));
+          
+          return newComments;
+        });
+      } else {
+        const error = await res.json();
+        toast.error(error.error || "删除失败");
+      }
+    } catch (error) {
+      console.error("删除评论失败", error);
+      toast.error("删除失败，请重试");
+    } finally {
+      setCommentToDelete(null);
+    }
+  };
+
   return (
     <>
       <AuthDialog open={showAuthDialog} onOpenChange={setShowAuthDialog}>
         <div className="hidden" />
       </AuthDialog>
+
+      <AlertDialog open={!!commentToDelete} onOpenChange={(open) => !open && setCommentToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认删除评论？</AlertDialogTitle>
+            <AlertDialogDescription>
+              删除后无法恢复，确定要删除这条评论吗？
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteComment} className="bg-destructive hover:bg-destructive/90">
+              删除
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <div className="py-4">
         <h3 className="text-base font-semibold mb-4 flex items-center gap-2">
@@ -409,6 +495,7 @@ export const CommentList = forwardRef<CommentListRef, CommentListProps>(({ produ
                 onSubmitReply={handleSubmitReply}
                 submitting={submitting}
                 onLike={handleLikeComment}
+                onDelete={setCommentToDelete}
                 currentUserId={currentUserId}
               />
             ))}

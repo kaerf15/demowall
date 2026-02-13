@@ -5,7 +5,7 @@ import { verifyAuth } from "@/lib/auth";
 import { withErrorHandler, BadRequestError, UnauthorizedError } from "@/lib/api-error";
 
 export const PUT = withErrorHandler(async (request: Request) => {
-  const user = verifyAuth(request as NextRequest);
+  const user = await verifyAuth(request as NextRequest);
   if (!user) {
     throw new UnauthorizedError("请先登录");
   }

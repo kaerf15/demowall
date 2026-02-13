@@ -1,3 +1,5 @@
+"use client";
+
 import {
   Dialog,
   DialogContent,
@@ -62,7 +64,6 @@ export function StatsDetailDialog({
         </div>
 
         <Button 
-          variant="gradient"
           className="w-full rounded-full mt-2" 
           onClick={() => onOpenChange(false)}
         >

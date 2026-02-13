@@ -22,6 +22,8 @@ interface NavbarProps {
   searchQuery?: string;
 }
 
+import { LayoutDashboard } from "lucide-react";
+
 export function Navbar({ onSearch, searchQuery = "" }: NavbarProps) {
   const router = useRouter();
   const { user, logout } = useAuth();
@@ -116,6 +118,14 @@ export function Navbar({ onSearch, searchQuery = "" }: NavbarProps) {
                       个人中心
                     </Link>
                   </DropdownMenuItem>
+                  {user.role === "ADMIN" && (
+                    <DropdownMenuItem asChild>
+                      <Link href="/admin" className="cursor-pointer">
+                        <LayoutDashboard className="w-4 h-4 mr-2" />
+                        管理后台
+                      </Link>
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-destructive focus:text-destructive">
                     <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">

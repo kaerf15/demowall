@@ -20,7 +20,7 @@ export const GET = withErrorHandler(async (request: Request) => {
   // 尝试获取当前登录用户，即使用户不要求特定 type
   // 这样可以在所有查询中返回 hasLiked/hasFavorited 状态
   try {
-    const user = verifyAuth(request as NextRequest);
+    const user = await verifyAuth(request as NextRequest);
     if (user) {
       userId = String(user.userId);
     }
@@ -59,7 +59,7 @@ export const GET = withErrorHandler(async (request: Request) => {
 });
 
 export const POST = withErrorHandler(async (request: Request) => {
-  const user = verifyAuth(request as NextRequest);
+  const user = await verifyAuth(request as NextRequest);
   if (!user) {
     throw new UnauthorizedError("请先登录");
   }

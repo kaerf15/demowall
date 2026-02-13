@@ -1,3 +1,5 @@
+"use client";
+
 import {
   Dialog,
   DialogContent,
@@ -5,17 +7,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useState, useEffect } from "react";
-import { Button } from "@/components/ui/button";
+import { useState } from "react";
 import { Avatar } from "@/components/ui/avatar";
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
-
-interface User {
-  id: number;
-  username: string;
-  avatar: string | null;
-}
+import { useFollows } from "@/hooks/useFollows";
 
 interface FollowListDialogProps {
   open: boolean;
@@ -28,43 +24,12 @@ export function FollowListDialog({
   onOpenChange,
   initialTab = "following",
 }: FollowListDialogProps) {
-  const { token, user: currentUser } = useAuth();
+  const { user: currentUser } = useAuth();
   const [activeTab, setActiveTab] = useState(initialTab);
-  const [users, setUsers] = useState<User[]>([]);
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    if (open && token) {
-      setActiveTab(initialTab);
-      fetchUsers(initialTab);
-    }
-  }, [open, initialTab, token]);
-
-  const fetchUsers = async (type: "following" | "followers") => {
-    setLoading(true);
-    try {
-      if (!token) return;
-      const res = await fetch(`/api/user/follows?type=${type}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setUsers(data);
-      } else {
-        setUsers([]);
-      }
-    } catch (error) {
-      console.error("Failed to fetch users", error);
-      setUsers([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { data: users = [], isLoading } = useFollows(activeTab, open);
 
   const handleTabChange = (value: string) => {
-    const type = value as "following" | "followers";
-    setActiveTab(type);
-    fetchUsers(type);
+    setActiveTab(value as "following" | "followers");
   };
 
   return (
@@ -93,7 +58,7 @@ export function FollowListDialog({
           </TabsList>
 
           <div className="flex-1 overflow-y-auto p-4">
-            {loading ? (
+            {isLoading ? (
               <div className="text-center py-8 text-muted-foreground">加载中...</div>
             ) : users.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">暂无数据</div>

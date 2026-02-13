@@ -13,12 +13,9 @@ export const POST = withErrorHandler(async (request: Request) => {
     throw new BadRequestError("请填写所有必填字段（用户名、邮箱、密码、验证码）");
   }
 
-  // 2. 验证用户名格式 (支持中英文、数字、下划线、中划线)
-  if (!/^[\u4e00-\u9fa5a-zA-Z0-9_-]+$/.test(username)) {
-    throw new BadRequestError("用户名只能包含中文、字母、数字、下划线和中划线");
-  }
-  if (username.length > 15) {
-    throw new BadRequestError("用户名不能超过15个字符");
+  // 2. 验证用户名格式 (允许任何字符，仅限制长度)
+  if (username.length > 20) {
+    throw new BadRequestError("用户名不能超过20个字符");
   }
 
   // 3. 验证邮箱格式
@@ -75,14 +72,31 @@ export const POST = withErrorHandler(async (request: Request) => {
       password: hashedPassword,
       avatar: avatar || null, // 如果没有头像，存为 null，前端会自动显示首字母
       contact: email, // 默认第一个联系方式为注册邮箱
+      lastLoginAt: new Date(), // 注册即首次登录
     },
   });
 
   // 8. 验证码作废
   await prisma.verificationCode.delete({ where: { id: validCode.id } });
 
+  // 记录登录日志 (注册即登录)
+  const ip = request.headers.get("x-forwarded-for") || "unknown";
+  const userAgent = request.headers.get("user-agent") || "unknown";
+  
+  await prisma.loginLog.create({
+    data: {
+      userId: user.id,
+      ipAddress: ip,
+      userAgent: userAgent,
+    }
+  });
+
   // 9. 生成 Token 并返回
-  const token = signToken({ userId: user.id, username: user.username });
+  const token = signToken({ 
+    userId: user.id, 
+    username: user.username,
+    role: "USER" 
+  });
 
   return NextResponse.json(
     {

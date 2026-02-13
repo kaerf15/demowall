@@ -114,6 +114,7 @@ export function ProductCard({ product, onClick, action }: ProductCardProps) {
             href={product.userId ? (currentUserId && String(currentUserId) === String(product.userId) ? "/profile" : `/users/${product.userId}`) : "#"}
             className="flex items-center gap-1.5 hover:opacity-80 transition-opacity"
             onClick={(e) => e.stopPropagation()}
+            prefetch={false}
           >
             <div className="w-5 h-5 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white text-[10px] font-semibold shadow-sm overflow-hidden">
               {product.user?.avatar ? (

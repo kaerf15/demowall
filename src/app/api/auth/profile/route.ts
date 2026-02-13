@@ -5,7 +5,7 @@ import { deleteFileFromOSS } from "@/lib/oss";
 
 export async function PUT(request: NextRequest) {
   try {
-    const user = verifyAuth(request);
+    const user = await verifyAuth(request);
     if (!user) {
       return NextResponse.json({ error: "请先登录" }, { status: 401 });
     }
@@ -21,16 +21,10 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    // 验证用户名格式
-    if (!/^[\u4e00-\u9fa5a-zA-Z0-9_-]+$/.test(username)) {
+    // 验证用户名格式 (允许任何字符)
+    if (username.length > 20) {
       return NextResponse.json(
-        { error: "用户名只能包含中文、字母、数字、下划线和中划线" },
-        { status: 400 }
-      );
-    }
-    if (username.length > 15) {
-      return NextResponse.json(
-        { error: "用户名不能超过15个字符" },
+        { error: "用户名不能超过20个字符" },
         { status: 400 }
       );
     }

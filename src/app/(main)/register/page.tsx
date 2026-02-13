@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -8,21 +8,76 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Navbar } from "@/components/Navbar";
 import { FluidLogo } from "@/components/FluidLogo";
+import { toast } from "sonner";
+import { Eye, EyeOff } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 
 // 移除预设头像列表
 // const PRESET_AVATARS = [...]
 
 export default function RegisterPage() {
   const router = useRouter();
+  const { login } = useAuth();
   const [formData, setFormData] = useState({
     username: "",
     email: "",
     password: "",
     confirmPassword: "",
+    code: "",
     // avatar: PRESET_AVATARS[0], // 移除默认头像
   });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  
+  // Verification Code Timer
+  const [countdown, setCountdown] = useState(0);
+  const [sendingCode, setSendingCode] = useState(false);
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (countdown > 0) {
+      interval = setInterval(() => {
+        setCountdown((prev) => {
+          if (prev <= 1) {
+            clearInterval(interval);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [countdown > 0]);
+
+  const sendCode = async () => {
+    if (!formData.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      setError("请输入有效的邮箱地址");
+      return;
+    }
+    
+    setSendingCode(true);
+    setError("");
+    try {
+      const res = await fetch("/api/auth/send-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: formData.email, type: "REGISTER" }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        toast.success("验证码已发送");
+        setCountdown(60);
+      } else {
+        setError(data.error || "验证码发送失败");
+      }
+    } catch {
+      setError("网络错误，请稍后重试");
+    } finally {
+      setSendingCode(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,6 +94,11 @@ export default function RegisterPage() {
       return;
     }
 
+    if (!formData.code) {
+      setError("请输入验证码");
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -49,6 +109,7 @@ export default function RegisterPage() {
           username: formData.username,
           email: formData.email,
           password: formData.password,
+          code: formData.code,
           // avatar: formData.avatar, // 移除头像
         }),
       });
@@ -57,8 +118,12 @@ export default function RegisterPage() {
 
       if (res.ok) {
         // 保存 token 和用户信息
-        localStorage.setItem("token", data.token);
-        localStorage.setItem("user", JSON.stringify(data.user));
+        // localStorage.setItem("token", data.token);
+        // localStorage.setItem("user", JSON.stringify(data.user));
+        
+        // 使用 AuthContext 的 login 方法统一处理
+        login(data.token, data.user);
+        
         router.push("/");
         router.refresh();
       } else {
@@ -127,11 +192,10 @@ export default function RegisterPage() {
                   onChange={(e) =>
                     setFormData({ ...formData, username: e.target.value })
                   }
-                  placeholder="设置用户名（仅字母、数字、下划线，15字内）"
+                  placeholder="设置用户名（20字内）"
                   className="bg-secondary/30 border-0 focus-visible:ring-2 focus-visible:ring-primary/30"
                   required
-                  pattern="^[a-zA-Z0-9_]+$"
-                  maxLength={15}
+                  maxLength={20}
                 />
               </div>
 
@@ -155,39 +219,101 @@ export default function RegisterPage() {
                 <label className="block text-sm font-semibold mb-2">
                   密码 *
                 </label>
-                <Input
-                  type="password"
-                  value={formData.password}
-                  onChange={(e) =>
-                    setFormData({ ...formData, password: e.target.value })
-                  }
-                  placeholder="设置密码（至少6位）"
-                  className="bg-secondary/30 border-0 focus-visible:ring-2 focus-visible:ring-primary/30"
-                  required
-                  minLength={6}
-                />
+                <div className="relative">
+                  <Input
+                    type={showPassword ? "text" : "password"}
+                    value={formData.password}
+                    onChange={(e) =>
+                      setFormData({ ...formData, password: e.target.value })
+                    }
+                    placeholder="设置密码（至少6位）"
+                    className="bg-secondary/30 border-0 focus-visible:ring-2 focus-visible:ring-primary/30 pr-10"
+                    required
+                    minLength={6}
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent text-muted-foreground"
+                    onClick={() => setShowPassword(!showPassword)}
+                  >
+                    {showPassword ? (
+                      <Eye className="h-4 w-4" />
+                    ) : (
+                      <EyeOff className="h-4 w-4" />
+                    )}
+                    <span className="sr-only">
+                      {showPassword ? "隐藏密码" : "显示密码"}
+                    </span>
+                  </Button>
+                </div>
               </div>
 
               <div>
                 <label className="block text-sm font-semibold mb-2">
                   确认密码 *
                 </label>
-                <Input
-                  type="password"
-                  value={formData.confirmPassword}
-                  onChange={(e) =>
-                    setFormData({ ...formData, confirmPassword: e.target.value })
-                  }
-                  placeholder="再次输入密码"
-                  className="bg-secondary/30 border-0 focus-visible:ring-2 focus-visible:ring-primary/30"
-                  required
-                />
+                <div className="relative">
+                  <Input
+                    type={showConfirmPassword ? "text" : "password"}
+                    value={formData.confirmPassword}
+                    onChange={(e) =>
+                      setFormData({ ...formData, confirmPassword: e.target.value })
+                    }
+                    placeholder="再次输入密码"
+                    className="bg-secondary/30 border-0 focus-visible:ring-2 focus-visible:ring-primary/30 pr-10"
+                    required
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent text-muted-foreground"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  >
+                    {showConfirmPassword ? (
+                      <Eye className="h-4 w-4" />
+                    ) : (
+                      <EyeOff className="h-4 w-4" />
+                    )}
+                    <span className="sr-only">
+                      {showConfirmPassword ? "隐藏密码" : "显示密码"}
+                    </span>
+                  </Button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold mb-2">
+                  验证码 *
+                </label>
+                <div className="flex gap-2">
+                  <Input
+                    type="text"
+                    value={formData.code}
+                    onChange={(e) =>
+                      setFormData({ ...formData, code: e.target.value })
+                    }
+                    placeholder="请输入验证码"
+                    className="bg-secondary/30 border-0 focus-visible:ring-2 focus-visible:ring-primary/30"
+                    required
+                  />
+                  <Button 
+                    type="button" 
+                    variant="outline"
+                    disabled={countdown > 0 || sendingCode}
+                    onClick={sendCode}
+                    className="w-32 shrink-0"
+                  >
+                    {countdown > 0 ? `${countdown}s` : (sendingCode ? "发送中..." : "获取验证码")}
+                  </Button>
+                </div>
               </div>
 
               <Button
                 type="submit"
-                variant="gradient"
-                className="w-full h-11 text-base shadow-lg shadow-primary/25"
+                className="w-full h-11 text-base shadow-lg shadow-primary/25 bg-gradient-to-r from-primary to-accent hover:opacity-90"
                 disabled={loading}
               >
                 {loading ? (

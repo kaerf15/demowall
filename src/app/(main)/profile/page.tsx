@@ -42,7 +42,7 @@ import { Navbar } from "@/components/Navbar";
 
 export default function ProfilePage() {
   const router = useRouter();
-  const { user: authUser, token, isAuthenticated, updateUser } = useAuth();
+  const { user: authUser, token, isAuthenticated, updateUser, isLoading: authLoading } = useAuth();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("created");
@@ -83,20 +83,17 @@ export default function ProfilePage() {
 
   // 1. Check auth
   useEffect(() => {
-    // 如果明确知道未认证且不在加载中，才重定向
-    if (isAuthenticated === false && !loading) {
+    // 等待 Auth 初始化完成
+    if (authLoading) return;
+
+    // 如果明确知道未认证，才重定向
+    if (!isAuthenticated) {
       router.push("/");
       return;
     }
 
     const checkAuth = async () => {
-      if (!token) {
-        // 如果没有 token，等待 AuthContext 初始化完成
-        if (!isAuthenticated) {
-             setLoading(false);
-        }
-        return;
-      }
+      if (!token) return;
 
       try {
         const res = await fetch("/api/auth/me", {
@@ -118,18 +115,19 @@ export default function ProfilePage() {
             title: data.user.title || "",
           });
         } else {
-          // Token 无效
-          router.push("/");
+          // Token 无效，但这里不强制跳转，而是交给 AuthContext 处理（它会 verifyToken 并 logout）
+          // 或者仅仅提示错误，防止重定向循环
+          console.error("Profile fetch failed:", res.status);
         }
       } catch (e) {
         console.error(e);
-        // 网络错误等暂不强制跳转，除非必要
       } finally {
         setLoading(false);
       }
     };
+
     checkAuth();
-  }, [isAuthenticated, token, router]);
+  }, [isAuthenticated, token, router, authLoading]);
 
   // 2. Fetch categories and stats
   useEffect(() => {

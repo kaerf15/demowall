@@ -14,7 +14,7 @@ export async function GET(
     let userId: string | undefined;
 
     try {
-      const user = verifyAuth(request);
+      const user = await verifyAuth(request);
       if (user) {
         userId = String(user.userId);
       }
@@ -50,7 +50,7 @@ export async function PUT(
 ) {
   try {
     const { id } = await params;
-    const user = verifyAuth(request);
+    const user = await verifyAuth(request);
     if (!user) {
       return NextResponse.json({ error: "请先登录" }, { status: 401 });
     }
@@ -176,7 +176,7 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
-    const user = verifyAuth(request);
+    const user = await verifyAuth(request);
     if (!user) {
       return NextResponse.json({ error: "请先登录" }, { status: 401 });
     }

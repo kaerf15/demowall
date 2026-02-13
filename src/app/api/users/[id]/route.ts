@@ -49,7 +49,7 @@ export const GET = withErrorHandler(async (request: Request, { params }: { param
   // 3. Check isFollowing (if logged in)
   let isFollowing = false;
   try {
-     const authUser = verifyAuth(request as NextRequest);
+     const authUser = await verifyAuth(request as NextRequest);
      if (authUser && String(authUser.userId) !== targetUserId) {
         const follow = await prisma.follow.findUnique({
             where: {

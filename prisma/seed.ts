@@ -12,7 +12,6 @@ const productImages = [
   "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=800&q=80",
   "https://images.unsplash.com/photo-1677442136019-21780ecad995?w=800&q=80",
   "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=800&q=80",
-  "https://images.unsplash.com/photo-1555421689-492a18d9c3ad?w=800&q=80",
   "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=800&q=80",
   "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=800&q=80",
   "https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=800&q=80",
@@ -64,6 +63,7 @@ function generateDescription(index: number): string {
 async function main() {
   // Clean up existing data
   console.log("Cleaning up database...");
+  await prisma.loginLog.deleteMany({});
   await prisma.commentLike.deleteMany({});
   await prisma.comment.deleteMany({});
   await prisma.like.deleteMany({});
@@ -87,6 +87,23 @@ async function main() {
   // Note: bcrypt hash for "password123"
   const defaultPassword = await bcrypt.hash("password123", 10);
   
+  // Create Admin User
+  const adminPassword = await bcrypt.hash("admin23", 10);
+  const adminUser = await prisma.user.create({
+    data: {
+      username: "admin",
+      email: "admin@demowall.com",
+      password: adminPassword,
+      role: "ADMIN",
+      avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop",
+      bio: "System Administrator",
+      title: "Admin",
+      contact: "Email: admin@demowall.com",
+    }
+  });
+  users.push(adminUser);
+  console.log("Admin user created (admin/admin23)");
+
   // 50 realistic users
   const realisticNames = [
     "James", "Mary", "Robert", "Patricia", "John", "Jennifer", "Michael", "Linda", "David", "Elizabeth",
@@ -114,6 +131,43 @@ async function main() {
     users.push(user);
   }
   console.log(`Created ${users.length} users starting from ID ${users[0].id}`);
+
+  // Seed Login Logs
+  console.log("Seeding login logs...");
+  const now = new Date();
+  for (const user of users) {
+    // 80% chance to be active in last 30 days
+    if (Math.random() > 0.2) {
+      const numLogins = Math.floor(Math.random() * 5) + 1; // 1-5 logins
+      for (let j = 0; j < numLogins; j++) {
+        const daysAgo = Math.floor(Math.random() * 30);
+        const loginDate = new Date(now);
+        loginDate.setDate(loginDate.getDate() - daysAgo);
+        
+        await prisma.loginLog.create({
+          data: {
+            userId: user.id,
+            createdAt: loginDate,
+            ipAddress: "127.0.0.1",
+            userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+          }
+        });
+      }
+      
+      // 30% chance to be active TODAY (DAU)
+      if (Math.random() > 0.7) {
+        await prisma.loginLog.create({
+          data: {
+            userId: user.id,
+            createdAt: new Date(), // Now
+            ipAddress: "127.0.0.1",
+            userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+          }
+        });
+      }
+    }
+  }
+  console.log("Login logs seeded!");
 
   // Create Categories with order
   const categories = [
@@ -166,12 +220,33 @@ async function main() {
 
   console.log("Categories seeded!");
 
-  console.log("Seeding 150 products with random categories...");
+  // Create Tags
+  const tagNames = [
+    "SaaS", "AI", "Open Source", "Design", "DevTool", 
+    "Mobile", "Web", "Free", "Paid", "Mac", "Windows", 
+    "Linux", "Extension", "Template", "API", "NoCode", 
+    "Productivity", "Marketing", "Crypto", "Education"
+  ];
+  
+  console.log("Seeding tags...");
+  const tagIds: string[] = [];
+  for (const tagName of tagNames) {
+    const tag = await prisma.tag.create({
+      data: { name: tagName },
+    });
+    tagIds.push(tag.id);
+  }
+  console.log("Tags seeded!");
+
+  console.log("Seeding 150 products with random categories and tags...");
   
   for (let i = 1; i <= 150; i++) {
     const maker = getRandomItem(users);
     const numCategories = Math.floor(Math.random() * 3) + 1; // 1 to 3 categories
     const selectedCategoryIds = getRandomItems(normalCategoryIds, numCategories);
+    
+    const numTags = Math.floor(Math.random() * 3) + 1; // 1 to 3 tags
+    const selectedTagIds = getRandomItems(tagIds, numTags);
 
     await prisma.product.create({
       data: {
@@ -185,6 +260,9 @@ async function main() {
         favorites: Math.floor(Math.random() * 200) + 5,
         categories: {
           connect: selectedCategoryIds.map(id => ({ id })),
+        },
+        tags: {
+          connect: selectedTagIds.map(id => ({ id })),
         },
       },
     });

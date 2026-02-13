@@ -5,7 +5,7 @@ import { withErrorHandler, UnauthorizedError, BadRequestError } from "@/lib/api-
 
 // 点赞评论
 export const POST = withErrorHandler(async (request: Request, { params }: { params: Promise<{ id: string }> }) => {
-  const user = verifyAuth(request as any);
+  const user = await verifyAuth(request as any);
   if (!user) {
     throw new UnauthorizedError("请先登录");
   }
@@ -50,7 +50,7 @@ export const POST = withErrorHandler(async (request: Request, { params }: { para
 
 // 取消点赞
 export const DELETE = withErrorHandler(async (request: Request, { params }: { params: Promise<{ id: string }> }) => {
-  const user = verifyAuth(request as any);
+  const user = await verifyAuth(request as any);
   if (!user) {
     throw new UnauthorizedError("请先登录");
   }

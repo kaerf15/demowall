@@ -4,7 +4,7 @@ import { verifyAuth } from "@/lib/auth";
 
 export async function GET(request: NextRequest) {
   try {
-    const user = verifyAuth(request);
+    const user = await verifyAuth(request);
     if (!user) {
       return NextResponse.json({ error: "未登录" }, { status: 401 });
     }
@@ -20,6 +20,7 @@ export async function GET(request: NextRequest) {
         contact: true,
         bio: true,
         title: true,
+        role: true,
       },
     });
 

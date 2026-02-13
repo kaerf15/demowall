@@ -8,15 +8,19 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Navbar } from "@/components/Navbar";
 import { FluidLogo } from "@/components/FluidLogo";
+import { Eye, EyeOff } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function LoginPage() {
   const router = useRouter();
+  const { login } = useAuth();
   const [formData, setFormData] = useState({
     username: "",
     password: "",
   });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,20 +28,31 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
+      console.log('Attempting login with:', { identifier: formData.username, type: 'password' });
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          identifier: formData.username,
+          credential: formData.password,
+          type: "password",
+        }),
       });
 
+      console.log('Login response status:', res.status);
       const data = await res.json();
+      console.log('Login response data:', data);
 
       if (res.ok) {
-        // 保存 token 到 localStorage
-        localStorage.setItem("token", data.token);
-        localStorage.setItem("user", JSON.stringify(data.user));
+        // 保存 token 到 localStorage 和 Cookie (为了 Middleware)
+        // localStorage.setItem("token", data.token);
+        // localStorage.setItem("user", JSON.stringify(data.user));
+        
+        // 使用 AuthContext 的 login 方法统一处理（包含 localStorage 和 Cookie）
+        login(data.token, data.user);
+        
+        // 登录成功后统一跳转到首页，由用户自行选择进入管理后台
         router.push("/");
-        router.refresh();
       } else {
         setError(data.error || "登录失败");
       }
@@ -104,22 +119,39 @@ export default function LoginPage() {
                 <label className="block text-sm font-semibold mb-2">
                   密码
                 </label>
-                <Input
-                  type="password"
-                  value={formData.password}
-                  onChange={(e) =>
-                    setFormData({ ...formData, password: e.target.value })
-                  }
-                  placeholder="输入密码"
-                  className="bg-secondary/30 border-0 focus-visible:ring-2 focus-visible:ring-primary/30"
-                  required
-                />
+                <div className="relative">
+                  <Input
+                    type={showPassword ? "text" : "password"}
+                    value={formData.password}
+                    onChange={(e) =>
+                      setFormData({ ...formData, password: e.target.value })
+                    }
+                    placeholder="输入密码"
+                    className="bg-secondary/30 border-0 focus-visible:ring-2 focus-visible:ring-primary/30 pr-10"
+                    required
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent text-muted-foreground"
+                    onClick={() => setShowPassword(!showPassword)}
+                  >
+                    {showPassword ? (
+                      <Eye className="h-4 w-4" />
+                    ) : (
+                      <EyeOff className="h-4 w-4" />
+                    )}
+                    <span className="sr-only">
+                      {showPassword ? "隐藏密码" : "显示密码"}
+                    </span>
+                  </Button>
+                </div>
               </div>
 
-              <Button
+              <button
                 type="submit"
-                variant="gradient"
-                className="w-full h-11 text-base shadow-lg shadow-primary/25"
+                className="w-full h-11 text-base shadow-lg shadow-primary/25 bg-primary text-primary-foreground hover:bg-primary/90 inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md font-medium transition-colors"
                 disabled={loading}
               >
                 {loading ? (
@@ -145,7 +177,7 @@ export default function LoginPage() {
                 ) : (
                   "登录"
                 )}
-              </Button>
+              </button>
 
               <p className="text-center text-sm text-muted-foreground">
                 还没有账号？{" "}

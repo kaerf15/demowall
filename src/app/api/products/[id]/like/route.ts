@@ -8,7 +8,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const user = verifyAuth(request);
+    const user = await verifyAuth(request);
     if (!user) {
       return NextResponse.json({ error: "请先登录" }, { status: 401 });
     }
@@ -36,7 +36,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const user = verifyAuth(request);
+    const user = await verifyAuth(request);
     if (!user) {
       return NextResponse.json({ error: "请先登录" }, { status: 401 });
     }
@@ -64,7 +64,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const user = verifyAuth(request);
+    const user = await verifyAuth(request);
     const { id } = await params;
 
     try {

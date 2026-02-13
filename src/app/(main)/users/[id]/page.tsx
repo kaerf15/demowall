@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
 import { toast } from "sonner";
 import { Product } from "@/types";
-import { Link as LinkIcon, Check, Plus } from "lucide-react";
+import { Link as LinkIcon, Check, Plus, Edit2 } from "lucide-react";
 import { useProducts } from "@/hooks/useProducts";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -74,12 +74,6 @@ export default function UserProfilePage({ params }: { params: Promise<{ id: stri
   useEffect(() => {
     // 如果 Auth 还在加载中，什么都不做，等待 settle
     if (authLoading) return;
-
-    // Redirect to profile if visiting own page
-    if (currentUser?.id === userId) {
-      router.replace("/profile");
-      return;
-    }
 
     const fetchUser = async () => {
       try {
@@ -192,7 +186,17 @@ export default function UserProfilePage({ params }: { params: Promise<{ id: stri
                         {user.username}
                     </h1>
                 </div>
-                {!isSelf && (
+                {isSelf ? (
+                    <Button 
+                        onClick={() => router.push("/profile")}
+                        variant="outline"
+                        size="sm"
+                        className="gap-2 h-7 px-4 text-xs font-medium rounded-full border-border/40 text-muted-foreground hover:bg-secondary/30 hover:text-foreground transition-colors focus-visible:ring-0 focus-visible:ring-offset-0"
+                    >
+                        <Edit2 className="w-3.5 h-3.5 mr-1.5" />
+                        编辑资料
+                    </Button>
+                ) : (
                     <Button 
                         onClick={handleFollow}
                         variant="outline"

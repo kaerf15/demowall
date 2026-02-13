@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -14,6 +14,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { Eye, EyeOff } from "lucide-react";
 
 export function AuthDialog({ 
   children, 
@@ -25,6 +26,7 @@ export function AuthDialog({
   onOpenChange?: (open: boolean) => void;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
   const { login } = useAuth();
   const [internalOpen, setInternalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -35,6 +37,11 @@ export function AuthDialog({
 
   const isOpen = open !== undefined ? open : internalOpen;
   const setIsOpen = onOpenChange || setInternalOpen;
+  
+  // Password Visibility States
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
+  const [showRegisterPassword, setShowRegisterPassword] = useState(false);
+  const [showResetPassword, setShowResetPassword] = useState(false);
 
   // Login Form State
   const [loginData, setLoginData] = useState({
@@ -62,11 +69,20 @@ export function AuthDialog({
   const [sendingCode, setSendingCode] = useState(false);
 
   useEffect(() => {
+    let interval: NodeJS.Timeout;
     if (countdown > 0) {
-      const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
-      return () => clearTimeout(timer);
+      interval = setInterval(() => {
+        setCountdown((prev) => {
+          if (prev <= 1) {
+            clearInterval(interval);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
     }
-  }, [countdown]);
+    return () => clearInterval(interval);
+  }, [countdown > 0]);
 
   const resetState = () => {
     setError("");
@@ -134,6 +150,14 @@ export function AuthDialog({
         login(data.token, data.user);
         setIsOpen(false);
         toast.success("登录成功");
+
+        // 登录成功后统一跳转到首页，由用户自行选择进入管理后台
+        if (pathname === "/login" || pathname === "/register") {
+          router.push("/");
+        } else {
+          // 如果在其他页面（如首页），保持在当前页面
+          router.refresh();
+        }
       } else {
         setError(data.error || "登录失败");
       }
@@ -248,17 +272,32 @@ export function AuthDialog({
                 onClick={() => sendCode(resetData.email, "RESET_PASSWORD")}
                 className="w-32 shrink-0"
               >
-                {countdown > 0 ? `${countdown}s` : "获取验证码"}
+                {countdown > 0 ? `${countdown}s` : (sendingCode ? "发送中..." : "获取验证码")}
               </Button>
             </div>
             <div className="space-y-2">
-              <Input
-                type="password"
-                placeholder="新密码 (至少6位)"
-                value={resetData.newPassword}
-                onChange={(e) => setResetData({ ...resetData, newPassword: e.target.value })}
-                required
-              />
+              <div className="relative">
+                <Input
+                  type={showResetPassword ? "text" : "password"}
+                  placeholder="新密码 (至少6位)"
+                  value={resetData.newPassword}
+                  onChange={(e) => setResetData({ ...resetData, newPassword: e.target.value })}
+                  className="pr-10"
+                  required
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent text-muted-foreground"
+                  onClick={() => setShowResetPassword(!showResetPassword)}
+                >
+                  {showResetPassword ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+                  <span className="sr-only">
+                    {showResetPassword ? "隐藏密码" : "显示密码"}
+                  </span>
+                </Button>
+              </div>
             </div>
             <Button
               type="submit"
@@ -317,16 +356,31 @@ export function AuthDialog({
                 
                 {loginMethod === "password" ? (
                   <div className="space-y-2">
+                  <div className="relative">
                     <Input
-                      type="password"
+                      type={showLoginPassword ? "text" : "password"}
                       placeholder="密码"
                       value={loginData.credential}
                       onChange={(e) =>
                         setLoginData({ ...loginData, credential: e.target.value })
                       }
+                      className="pr-10"
                       required
                     />
-                    <div className="text-right">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent text-muted-foreground"
+                      onClick={() => setShowLoginPassword(!showLoginPassword)}
+                >
+                  {showLoginPassword ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+                  <span className="sr-only">
+                    {showLoginPassword ? "隐藏密码" : "显示密码"}
+                  </span>
+                </Button>
+                  </div>
+                  <div className="text-right">
                       <button
                         type="button"
                         onClick={() => setForgotPassword(true)}
@@ -353,7 +407,7 @@ export function AuthDialog({
                       onClick={() => sendCode(loginData.identifier, "LOGIN")}
                       className="w-32 shrink-0"
                     >
-                      {countdown > 0 ? `${countdown}s` : "获取验证码"}
+                      {countdown > 0 ? `${countdown}s` : (sendingCode ? "发送中..." : "获取验证码")}
                     </Button>
                   </div>
                 )}
@@ -372,7 +426,7 @@ export function AuthDialog({
               <form onSubmit={handleRegister} className="space-y-4">
                 <div className="space-y-2">
                   <Input
-                    placeholder="用户名 (中文、字母、数字、下划线、中划线)"
+                    placeholder="用户名"
                     value={registerData.username}
                     onChange={(e) =>
                       setRegisterData({ ...registerData, username: e.target.value })
@@ -392,15 +446,30 @@ export function AuthDialog({
                   />
                 </div>
                 <div className="space-y-2">
-                  <Input
-                    type="password"
-                    placeholder="密码 (至少6位)"
-                    value={registerData.password}
-                    onChange={(e) =>
-                      setRegisterData({ ...registerData, password: e.target.value })
-                    }
-                    required
-                  />
+                  <div className="relative">
+                    <Input
+                      type={showRegisterPassword ? "text" : "password"}
+                      placeholder="密码 (至少6位)"
+                      value={registerData.password}
+                      onChange={(e) =>
+                        setRegisterData({ ...registerData, password: e.target.value })
+                      }
+                      className="pr-10"
+                      required
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent text-muted-foreground"
+                      onClick={() => setShowRegisterPassword(!showRegisterPassword)}
+                >
+                  {showRegisterPassword ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+                  <span className="sr-only">
+                    {showRegisterPassword ? "隐藏密码" : "显示密码"}
+                  </span>
+                </Button>
+                  </div>
                 </div>
                 <div className="flex gap-2">
                   <Input

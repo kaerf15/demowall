@@ -145,7 +145,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
             initialData={initialData}
             onSubmit={handleSubmit}
             title="编辑产品"
-            submitLabel="保存修改"
+            submitLabel="发布修改"
           />
         </div>
       </main>
